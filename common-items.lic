@@ -95,7 +95,8 @@ module DRCI
     /You carefully loop/,
     /You work your way into/,
     /slide effortlessly onto your/,
-    /You are already wearing/
+    /You are already wearing/,
+  	/Gritting your teeth, you grip/
   ]
 
   @@wear_item_failure_patterns = [
