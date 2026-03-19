@@ -241,13 +241,13 @@ class ScriptManager
 
     Settings['base_versions'] ||= {}
 
-    @self_updated = false
     @request_authorization = load_personal_github_token
     @versions = nil
+    @dependency_updated = false
   end
 
-  def updated_dependency?
-    @self_updated
+  def dependency_updated?
+    @dependency_updated
   end
 
   def autostarts
@@ -299,26 +299,12 @@ class ScriptManager
     return unless info
     return if get_versions[filename] == info['sha'] && !force
 
-    if filename == 'dependency.lic' && File.exist?(File.join(SCRIPT_DIR, filename))
-      body = File.open(File.join(SCRIPT_DIR, filename), 'r').readlines.join('')
-      @versions[filename] = Digest::SHA1.hexdigest('blob' + " #{body.size}" + "\0" + body)
-      return if info['sha'] == @versions[filename]
-    end
-
     echo("info:#{info}") if @debug
     content = download_raw_file(filename)
     return unless content
 
-    if filename == 'dependency.lic'
-      content_sha = Digest::SHA1.hexdigest('blob' + " #{content.bytesize}" + "\0" + content)
-      if content_sha == @versions[filename]
-        echo("dependency.lic content unchanged, skipping self-update") if @debug
-        return
-      end
-    end
-
     File.open(File.join(SCRIPT_DIR, "#{filename}"), 'w') { |file| file.print(content) }
-    @self_updated = true if filename == 'dependency.lic'
+    @dependency_updated = true if filename == 'dependency.lic'
   end
 
   def verify_or_make_dir(path)
@@ -1288,15 +1274,6 @@ def setup_data
   $manager.setup_data
 end
 
-def update_d
-  echo('Restarting Dependency in 2 seconds...')
-  before_dying do
-    sleep 2
-    force_start_script('dependency')
-  end
-  stop_script('dependency')
-end
-
 def shift_hometown(town_name)
   $HOMETOWN = town_name
 end
@@ -1338,11 +1315,6 @@ $manager.make_map_edits
 
 respond 'Finished install!' if install
 
-if $manager.updated_dependency?
-  echo('Update found for dependency.lic')
-  update_d
-end
-
 $setupfiles.reload
 
 # Remind user of curated scripts with a copy in custom folder
@@ -1351,3 +1323,8 @@ warn_custom_scripts
 # Warn about obsolete scripts and data files still present locally
 warn_obsolete_scripts
 warn_obsolete_data_files
+
+if $manager.dependency_updated?
+  DRC.message("--- Dependency: A new version of dependency.lic was downloaded.")
+  DRC.message("--- Dependency: Run ;dependency to pick up the new version.")
+end
